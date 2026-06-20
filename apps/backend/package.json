@@ -1,0 +1,39 @@
+{
+  "name": "@chat/backend",
+  "version": "0.0.1",
+  "private": true,
+  "scripts": {
+    "build": "dotenv -e ../../.env -- prisma generate && nest build",
+    "start": "nest start",
+    "start:dev": "nest start --watch",
+    "start:prod": "node dist/main",
+    "prisma:generate": "dotenv -e ../../.env -- prisma generate",
+    "prisma:migrate": "dotenv -e ../../.env -- prisma migrate dev",
+    "prisma:deploy": "dotenv -e ../../.env -- prisma migrate deploy"
+  },
+  "dependencies": {
+    "@chat/shared": "*",
+    "@nestjs/common": "^11.0.12",
+    "@nestjs/config": "^4.0.1",
+    "@nestjs/core": "^11.0.12",
+    "@nestjs/platform-express": "^11.0.12",
+    "@nestjs/platform-socket.io": "^11.0.12",
+    "@nestjs/schedule": "^5.0.1",
+    "@nestjs/websockets": "^11.0.12",
+    "@prisma/client": "^6.5.0",
+    "class-transformer": "^0.5.1",
+    "class-validator": "^0.14.1",
+    "ioredis": "^5.6.0",
+    "reflect-metadata": "^0.2.2",
+    "rxjs": "^7.8.2",
+    "socket.io": "^4.8.1"
+  },
+  "devDependencies": {
+    "@nestjs/cli": "^11.0.5",
+    "@nestjs/schematics": "^11.0.2",
+    "@types/node": "^22.13.10",
+    "dotenv-cli": "^8.0.0",
+    "prisma": "^6.5.0",
+    "typescript": "^5.8.3"
+  }
+}

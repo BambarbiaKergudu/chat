@@ -1,0 +1,31 @@
+# Локальная документация — хранится в D:\Projects\docs\
+docs/
+
+# Dependencies
+node_modules/
+
+# Build
+dist/
+build/
+
+# Environment
+.env
+.env.local
+
+# Logs
+*.log
+npm-debug.log*
+.build-ts-errors.txt
+build-backend-log.txt
+nest-err.txt
+nest-summary.txt
+ts-err.b64
+
+# IDE / OS
+.idea/
+.vscode/
+.DS_Store
+Thumbs.db
+
+# Prisma
+apps/backend/prisma/*.db
