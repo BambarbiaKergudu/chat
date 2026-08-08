@@ -120,12 +120,25 @@ export function LoginPage() {
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
 
+  const parsedAgeFrom = Number(ageFrom);
+  const parsedAgeTo = Number(ageTo);
+  const ageRangeInvalid =
+    Number.isFinite(parsedAgeFrom) &&
+    Number.isFinite(parsedAgeTo) &&
+    parsedAgeFrom > parsedAgeTo;
+
   const isConnected =
     connectionStatus === 'connected' || connectionStatus === 'ready';
 
   async function handleSubmit(event: FormEvent) {
     event.preventDefault();
     setError(null);
+
+    if (ageRangeInvalid) {
+      setError('Возраст «до» не может быть меньше возраста «от»');
+      return;
+    }
+
     setLoading(true);
 
     const profile: UserProfile = {
@@ -136,8 +149,8 @@ export function LoginPage() {
 
     const filters: PartnerFilters = {
       desiredGender,
-      ageFrom: Number(ageFrom),
-      ageTo: Number(ageTo),
+      ageFrom: parsedAgeFrom,
+      ageTo: parsedAgeTo,
     };
 
     try {
@@ -234,7 +247,7 @@ export function LoginPage() {
               Возраст до
               <Input
                 type="number"
-                min={18}
+                min={parsedAgeFrom || 18}
                 max={99}
                 value={ageTo}
                 onChange={(e) => setAgeTo(e.target.value)}
@@ -242,6 +255,11 @@ export function LoginPage() {
               />
             </Label>
           </Row>
+          {ageRangeInvalid && (
+            <Status $variant="error">
+              Возраст «до» не может быть меньше возраста «от»
+            </Status>
+          )}
         </Fieldset>
 
         {error && <Status $variant="error">{error}</Status>}
@@ -252,7 +270,7 @@ export function LoginPage() {
         <Button
           data-testid="login-submit"
           type="submit"
-          disabled={!isConnected || loading}
+          disabled={!isConnected || loading || ageRangeInvalid}
         >
           {loading
             ? isEditing
