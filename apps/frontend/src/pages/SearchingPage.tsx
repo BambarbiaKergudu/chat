@@ -36,7 +36,7 @@ const Text = styled.p`
 
 export function SearchingPage() {
   return (
-    <Page>
+    <Page data-testid="searching-page">
       <Spinner />
       <Title>Идёт поиск собеседника…</Title>
       <Text>Ожидайте — мы подберём подходящего человека по вашим фильтрам.</Text>

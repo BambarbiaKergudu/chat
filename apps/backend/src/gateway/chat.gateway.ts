@@ -25,6 +25,8 @@ import { WsEmitterService } from './ws-emitter.service';
     origin: true,
     credentials: true,
   },
+  pingInterval: 10_000,
+  pingTimeout: 20_000,
 })
 @UsePipes(
   new ValidationPipe({

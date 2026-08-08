@@ -6,6 +6,10 @@ import type {
   UserProfile,
 } from '@chat/shared';
 import { create } from 'zustand';
+import {
+  clearSessionCredentials,
+  saveSessionCredentials,
+} from '../lib/sessionPersistence';
 
 export type AppScreen = 'login' | 'idle' | 'searching' | 'chat';
 
@@ -44,7 +48,8 @@ export const useAppStore = create<AppState>((set) => ({
   messages: [],
   peerLeftNotice: null,
   setScreen: (screen) => set({ screen }),
-  setSession: (sessionId, profile, filters) =>
+  setSession: (sessionId, profile, filters) => {
+    saveSessionCredentials(profile, filters);
     set({
       sessionId,
       profile,
@@ -54,7 +59,8 @@ export const useAppStore = create<AppState>((set) => ({
       room: null,
       messages: [],
       peerLeftNotice: null,
-    }),
+    });
+  },
   setProposal: (proposal) => set({ proposal }),
   setRoom: (room) =>
     set({
@@ -88,7 +94,8 @@ export const useAppStore = create<AppState>((set) => ({
     }),
   clearPeerLeftNotice: () => set({ peerLeftNotice: null }),
   editSearchParams: () => set({ screen: 'login', proposal: null }),
-  reset: () =>
+  reset: () => {
+    clearSessionCredentials();
     set({
       screen: 'login',
       sessionId: null,
@@ -98,5 +105,6 @@ export const useAppStore = create<AppState>((set) => ({
       room: null,
       messages: [],
       peerLeftNotice: null,
-    }),
+    });
+  },
 }));

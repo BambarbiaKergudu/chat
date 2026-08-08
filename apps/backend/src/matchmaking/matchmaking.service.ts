@@ -1,15 +1,19 @@
 import {
   BadRequestException,
   ConflictException,
+  HttpException,
+  HttpStatus,
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
 import {
+  SEARCH_START_RATE_LIMIT,
   SearchStatusPayload,
   ServerEvents,
   UserStatus,
 } from '@chat/shared';
 import { WsEmitterService } from '../gateway/ws-emitter.service';
+import { RateLimitService } from '../redis/rate-limit.service';
 import { SessionService } from '../session/session.service';
 import { toUserStatus } from '../session/session.dto';
 import { ProposalService } from './proposal.service';
@@ -22,12 +26,23 @@ export class MatchmakingService {
     private readonly searchQueue: SearchQueueService,
     private readonly proposalService: ProposalService,
     private readonly wsEmitter: WsEmitterService,
+    private readonly rateLimit: RateLimitService,
   ) {}
 
   async startSearch(socketId: string): Promise<SearchStatusPayload> {
     const session = await this.sessionService.getSessionBySocketId(socketId);
     if (!session) {
       throw new NotFoundException('Session not found');
+    }
+
+    const allowed = await this.rateLimit.allow(
+      'search:start',
+      session.sessionId,
+      SEARCH_START_RATE_LIMIT.limit,
+      SEARCH_START_RATE_LIMIT.windowSec,
+    );
+    if (!allowed) {
+      throw new HttpException('Too many search attempts', HttpStatus.TOO_MANY_REQUESTS);
     }
 
     const status = toUserStatus(session.status);

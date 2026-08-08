@@ -1,17 +1,21 @@
 import {
   BadRequestException,
   ConflictException,
+  HttpException,
+  HttpStatus,
   Injectable,
   Logger,
   NotFoundException,
 } from '@nestjs/common';
 import {
+  SESSION_INIT_RATE_LIMIT,
   SessionInitPayload,
   SessionReadyPayload,
   UserStatus,
 } from '@chat/shared';
 import { randomUUID } from 'crypto';
 import { PrismaService } from '../database/prisma.service';
+import { RateLimitService } from '../redis/rate-limit.service';
 import { RedisKeys, RedisSessionData } from '../redis/redis.keys';
 import { RedisService } from '../redis/redis.service';
 import { assertValidAgeRange, toUserStatus } from './session.dto';
@@ -23,6 +27,7 @@ export class SessionService {
   constructor(
     private readonly redis: RedisService,
     private readonly prisma: PrismaService,
+    private readonly rateLimit: RateLimitService,
   ) {}
 
   async initSession(
@@ -30,6 +35,16 @@ export class SessionService {
     payload: SessionInitPayload,
   ): Promise<SessionReadyPayload> {
     assertValidAgeRange(payload.filters);
+
+    const allowed = await this.rateLimit.allow(
+      'session:init',
+      socketId,
+      SESSION_INIT_RATE_LIMIT.limit,
+      SESSION_INIT_RATE_LIMIT.windowSec,
+    );
+    if (!allowed) {
+      throw new HttpException('Too many session init attempts', HttpStatus.TOO_MANY_REQUESTS);
+    }
 
     const existingSessionId = await this.redis.get(
       RedisKeys.socketToSession(socketId),

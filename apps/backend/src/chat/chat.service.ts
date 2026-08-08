@@ -1,5 +1,6 @@
 import { Inject, Injectable, Logger, forwardRef } from '@nestjs/common';
 import {
+  CHAT_MESSAGE_RATE_LIMIT,
   ChatEndReason,
   ChatMessage,
   ChatPeerLeftPayload,
@@ -9,6 +10,7 @@ import {
 import { randomUUID } from 'crypto';
 import { PrismaService } from '../database/prisma.service';
 import { WsEmitterService } from '../gateway/ws-emitter.service';
+import { RateLimitService } from '../redis/rate-limit.service';
 import { RedisKeys, RedisRoomData, RedisSessionData } from '../redis/redis.keys';
 import { RedisService } from '../redis/redis.service';
 import { toUserStatus } from '../session/session.dto';
@@ -25,6 +27,7 @@ export class ChatService {
     private readonly sessionService: SessionService,
     @Inject(forwardRef(() => WsEmitterService))
     private readonly wsEmitter: WsEmitterService,
+    private readonly rateLimit: RateLimitService,
   ) {}
 
   async createRoom(
@@ -77,6 +80,17 @@ export class ChatService {
   ): Promise<ChatMessage | null> {
     const session = await this.sessionService.getSessionBySocketId(socketId);
     if (!session || toUserStatus(session.status) !== UserStatus.InChat) {
+      return null;
+    }
+
+    const allowed = await this.rateLimit.allow(
+      'chat:message',
+      session.sessionId,
+      CHAT_MESSAGE_RATE_LIMIT.limit,
+      CHAT_MESSAGE_RATE_LIMIT.windowSec,
+    );
+    if (!allowed) {
+      this.logger.warn(`Chat rate limit hit: ${session.sessionId}`);
       return null;
     }
 

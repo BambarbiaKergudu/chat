@@ -168,6 +168,7 @@ export function LoginPage() {
           <Label>
             Никнейм
             <Input
+              data-testid="login-nickname"
               value={nickname}
               onChange={(e) => setNickname(e.target.value)}
               minLength={2}
@@ -179,6 +180,7 @@ export function LoginPage() {
             <Label>
               Пол
               <Select
+                data-testid="login-gender"
                 value={gender}
                 onChange={(e) => setGender(e.target.value as Gender)}
               >
@@ -189,6 +191,7 @@ export function LoginPage() {
             <Label>
               Возраст
               <Input
+                data-testid="login-age"
                 type="number"
                 min={18}
                 max={99}
@@ -246,7 +249,11 @@ export function LoginPage() {
           <Status>Сессия активна: {sessionId.slice(0, 8)}…</Status>
         )}
 
-        <Button type="submit" disabled={!isConnected || loading}>
+        <Button
+          data-testid="login-submit"
+          type="submit"
+          disabled={!isConnected || loading}
+        >
           {loading
             ? isEditing
               ? 'Сохранение…'

@@ -126,7 +126,7 @@ export function ChatPage() {
   };
 
   return (
-    <Page>
+    <Page data-testid="chat-page">
       <Header>
         <PeerInfo>
           <Title>{room.peer.nickname}</Title>
@@ -134,7 +134,7 @@ export function ChatPage() {
             {genderLabel(room.peer.gender)}, {room.peer.age}
           </Meta>
         </PeerInfo>
-        <LeaveButton type="button" onClick={handleLeave}>
+        <LeaveButton data-testid="leave-chat" type="button" onClick={handleLeave}>
           Покинуть чат
         </LeaveButton>
       </Header>
@@ -143,13 +143,14 @@ export function ChatPage() {
 
       <Composer onSubmit={handleSubmit}>
         <Input
+          data-testid="chat-input"
           value={text}
           onChange={(event) => setText(event.target.value)}
           placeholder="Сообщение…"
           maxLength={1000}
           autoFocus
         />
-        <SendButton type="submit" disabled={!text.trim()}>
+        <SendButton data-testid="chat-send" type="submit" disabled={!text.trim()}>
           Отправить
         </SendButton>
       </Composer>

@@ -107,7 +107,7 @@ export function ProposalModal({ proposal }: ProposalModalProps) {
   }
 
   return (
-    <Overlay>
+    <Overlay data-testid="proposal-modal">
       <Modal>
         <Title>С вами хотят пообщаться</Title>
         <p>
@@ -116,10 +116,16 @@ export function ProposalModal({ proposal }: ProposalModalProps) {
         </p>
         <Timer>{secondsLeft}</Timer>
         <Actions>
-          <Button type="button" disabled={loading} onClick={() => respond(false)}>
+          <Button
+            data-testid="proposal-decline"
+            type="button"
+            disabled={loading}
+            onClick={() => respond(false)}
+          >
             Нет
           </Button>
           <Button
+            data-testid="proposal-accept"
             type="button"
             $primary
             disabled={loading}

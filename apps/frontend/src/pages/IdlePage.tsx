@@ -57,11 +57,11 @@ export function IdlePage() {
   };
 
   return (
-    <Page>
+    <Page data-testid="idle-page">
       <Title>Привет, {profile?.nickname}!</Title>
       <Text>Вы в сети и доступны для входящих предложений.</Text>
       <Actions>
-        <Button type="button" onClick={startSearch}>
+        <Button data-testid="start-search" type="button" onClick={startSearch}>
           Начать общение
         </Button>
         <Button type="button" $secondary onClick={handleEditSearchParams}>

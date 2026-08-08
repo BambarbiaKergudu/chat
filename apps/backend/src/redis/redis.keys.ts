@@ -15,6 +15,7 @@ export const RedisKeys = {
         : [sessionIdB, sessionIdA];
     return `match:block:${left}:${right}`;
   },
+  rateLimit: (bucket: string, id: string) => `rate:${bucket}:${id}`,
 } as const;
 
 export interface RedisSessionData {
