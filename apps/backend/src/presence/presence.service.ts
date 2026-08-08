@@ -1,5 +1,7 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { Inject, Injectable, Logger, forwardRef } from '@nestjs/common';
 import { UserStatus } from '@chat/shared';
+import { ChatService } from '../chat/chat.service';
+import { WsEmitterService } from '../gateway/ws-emitter.service';
 import { ProposalService } from '../matchmaking/proposal.service';
 import { RedisKeys } from '../redis/redis.keys';
 import { RedisService } from '../redis/redis.service';
@@ -14,6 +16,10 @@ export class PresenceService {
     private readonly sessionService: SessionService,
     private readonly redis: RedisService,
     private readonly proposalService: ProposalService,
+    @Inject(forwardRef(() => ChatService))
+    private readonly chatService: ChatService,
+    @Inject(forwardRef(() => WsEmitterService))
+    private readonly wsEmitter: WsEmitterService,
   ) {}
 
   async handleDisconnect(socketId: string): Promise<void> {
@@ -22,10 +28,57 @@ export class PresenceService {
       return;
     }
 
-    const status = toUserStatus(session.status);
     this.logger.log(
-      `Disconnect: session ${session.sessionId}, status ${status}`,
+      `Disconnect: session ${session.sessionId}, status ${session.status}`,
     );
+    await this.releaseSession(session.sessionId, session.socketId);
+  }
+
+  /**
+   * Remove Redis sessions whose sockets are no longer connected.
+   * Needed after backend restart (Redis state survives, sockets do not).
+   */
+  async purgeDeadSessions(): Promise<void> {
+    const sessionKeys = await this.redis.scanKeys('session:*');
+    let purged = 0;
+
+    for (const key of sessionKeys) {
+      if (key.startsWith('session:room:')) {
+        continue;
+      }
+
+      const sessionId = key.slice('session:'.length);
+      const session = await this.sessionService.getSession(sessionId);
+      if (!session) {
+        await this.redis.del(key);
+        continue;
+      }
+
+      if (this.wsEmitter.isSocketConnected(session.socketId)) {
+        continue;
+      }
+
+      await this.releaseSession(session.sessionId, session.socketId);
+      purged += 1;
+    }
+
+    await this.pruneSessionSet(RedisKeys.searchQueue);
+    await this.pruneSessionSet(RedisKeys.idlePool);
+    await this.pruneSessionSet(RedisKeys.proposedActive);
+
+    this.logger.log(`Purged ${purged} dead session(s)`);
+  }
+
+  private async releaseSession(
+    sessionId: string,
+    socketId: string,
+  ): Promise<void> {
+    const session = await this.sessionService.getSession(sessionId);
+    if (!session) {
+      return;
+    }
+
+    const status = toUserStatus(session.status);
 
     switch (status) {
       case UserStatus.Searching: {
@@ -42,12 +95,22 @@ export class PresenceService {
         await this.proposalService.expireProposal(session.sessionId);
         break;
       case UserStatus.InChat:
-        // Room teardown — этап 4 (ChatModule)
+        await this.chatService.leaveBySession(session.sessionId, 'disconnect');
         break;
       default:
         break;
     }
 
     await this.sessionService.cleanupSession(session.sessionId, socketId);
+  }
+
+  private async pruneSessionSet(setKey: string): Promise<void> {
+    const members = await this.redis.smembers(setKey);
+    for (const sessionId of members) {
+      const session = await this.sessionService.getSession(sessionId);
+      if (!session) {
+        await this.redis.srem(setKey, sessionId);
+      }
+    }
   }
 }

@@ -1,5 +1,6 @@
 import {
   BadRequestException,
+  ConflictException,
   Injectable,
   Logger,
   NotFoundException,
@@ -13,7 +14,7 @@ import { randomUUID } from 'crypto';
 import { PrismaService } from '../database/prisma.service';
 import { RedisKeys, RedisSessionData } from '../redis/redis.keys';
 import { RedisService } from '../redis/redis.service';
-import { assertValidAgeRange } from './session.dto';
+import { assertValidAgeRange, toUserStatus } from './session.dto';
 
 @Injectable()
 export class SessionService {
@@ -113,6 +114,22 @@ export class SessionService {
     }
   }
 
+  async beginEdit(socketId: string): Promise<{ editing: true }> {
+    const session = await this.getSessionBySocketId(socketId);
+    if (!session) {
+      throw new NotFoundException('Session not found');
+    }
+
+    const status = toUserStatus(session.status);
+    if (status !== UserStatus.Idle) {
+      throw new ConflictException(`Cannot edit while in status ${status}`);
+    }
+
+    await this.updateStatus(session.sessionId, UserStatus.Editing);
+    this.logger.log(`Session editing params: ${session.sessionId}`);
+    return { editing: true };
+  }
+
   async cleanupSession(
     sessionId: string,
     socketId: string,
@@ -130,6 +147,7 @@ export class SessionService {
       RedisKeys.socketToSession(socketId),
       RedisKeys.proposal(sessionId),
       RedisKeys.searchPending(sessionId),
+      RedisKeys.sessionRoom(sessionId),
     );
 
     await this.prisma.userSession.updateMany({

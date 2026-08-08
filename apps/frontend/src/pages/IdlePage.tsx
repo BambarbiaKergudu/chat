@@ -22,12 +22,20 @@ const Text = styled.p`
   text-align: center;
 `;
 
-const Button = styled.button`
+const Actions = styled.div`
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  width: 100%;
+  max-width: 16rem;
+`;
+
+const Button = styled.button<{ $secondary?: boolean }>`
   padding: 0.75rem 1.25rem;
   border: none;
   border-radius: 0.375rem;
-  background: #2563eb;
-  color: #fff;
+  background: ${({ $secondary }) => ($secondary ? '#e2e8f0' : '#2563eb')};
+  color: ${({ $secondary }) => ($secondary ? '#0f172a' : '#fff')};
   font-size: 1rem;
   font-weight: 600;
   cursor: pointer;
@@ -40,15 +48,26 @@ const Button = styled.button`
 
 export function IdlePage() {
   const profile = useAppStore((s) => s.profile);
-  const { startSearch } = useSocket();
+  const editSearchParams = useAppStore((s) => s.editSearchParams);
+  const { startSearch, beginEditSearchParams } = useSocket();
+
+  const handleEditSearchParams = () => {
+    beginEditSearchParams();
+    editSearchParams();
+  };
 
   return (
     <Page>
       <Title>Привет, {profile?.nickname}!</Title>
       <Text>Вы в сети и доступны для входящих предложений.</Text>
-      <Button type="button" onClick={startSearch}>
-        Начать общение
-      </Button>
+      <Actions>
+        <Button type="button" onClick={startSearch}>
+          Начать общение
+        </Button>
+        <Button type="button" $secondary onClick={handleEditSearchParams}>
+          Изменить параметры поиска
+        </Button>
+      </Actions>
     </Page>
   );
 }

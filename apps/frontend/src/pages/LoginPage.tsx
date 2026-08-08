@@ -103,15 +103,20 @@ export function LoginPage() {
   const { connectionStatus, initSession } = useSocket();
   const setSession = useAppStore((s) => s.setSession);
   const sessionId = useAppStore((s) => s.sessionId);
+  const profile = useAppStore((s) => s.profile);
+  const filters = useAppStore((s) => s.filters);
+  const isEditing = Boolean(profile && filters);
 
-  const [nickname, setNickname] = useState('');
-  const [gender, setGender] = useState<Gender>(Gender.Male);
-  const [age, setAge] = useState('25');
+  const [nickname, setNickname] = useState(profile?.nickname ?? '');
+  const [gender, setGender] = useState<Gender>(profile?.gender ?? Gender.Male);
+  const [age, setAge] = useState(profile ? String(profile.age) : '25');
   const [desiredGender, setDesiredGender] = useState<DesiredGender>(
-    DesiredGender.Any,
+    filters?.desiredGender ?? DesiredGender.Any,
   );
-  const [ageFrom, setAgeFrom] = useState('18');
-  const [ageTo, setAgeTo] = useState('99');
+  const [ageFrom, setAgeFrom] = useState(
+    filters ? String(filters.ageFrom) : '18',
+  );
+  const [ageTo, setAgeTo] = useState(filters ? String(filters.ageTo) : '99');
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
 
@@ -148,7 +153,7 @@ export function LoginPage() {
   return (
     <Page>
       <Card onSubmit={handleSubmit}>
-        <Title>Вход в чат</Title>
+        <Title>{isEditing ? 'Параметры поиска' : 'Вход в чат'}</Title>
         <Status $variant="muted">
           Соединение:{' '}
           {connectionStatus === 'connecting'
@@ -242,7 +247,13 @@ export function LoginPage() {
         )}
 
         <Button type="submit" disabled={!isConnected || loading}>
-          {loading ? 'Вход…' : 'Войти'}
+          {loading
+            ? isEditing
+              ? 'Сохранение…'
+              : 'Вход…'
+            : isEditing
+              ? 'Сохранить'
+              : 'Войти'}
         </Button>
       </Card>
     </Page>

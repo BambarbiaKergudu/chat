@@ -7,6 +7,14 @@ export const RedisKeys = {
   searchPending: (sessionId: string) => `search:pending:${sessionId}`,
   proposedActive: 'proposed:active',
   room: (roomId: string) => `room:${roomId}`,
+  sessionRoom: (sessionId: string) => `session:room:${sessionId}`,
+  matchBlock: (sessionIdA: string, sessionIdB: string) => {
+    const [left, right] =
+      sessionIdA < sessionIdB
+        ? [sessionIdA, sessionIdB]
+        : [sessionIdB, sessionIdA];
+    return `match:block:${left}:${right}`;
+  },
 } as const;
 
 export interface RedisSessionData {
@@ -20,4 +28,14 @@ export interface RedisSessionData {
   desiredGender: string;
   ageFrom: string;
   ageTo: string;
+}
+
+export interface RedisRoomData {
+  roomId: string;
+  sessionAId: string;
+  sessionBId: string;
+  userAId: string;
+  userBId: string;
+  socketAId: string;
+  socketBId: string;
 }

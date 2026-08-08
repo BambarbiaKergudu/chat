@@ -1,4 +1,5 @@
 import { Module, forwardRef } from '@nestjs/common';
+import { ChatModule } from '../chat/chat.module';
 import { SessionModule } from '../session/session.module';
 import { GatewayModule } from '../gateway/gateway.module';
 import { CandidatePoolService } from './candidate-pool.service';
@@ -9,7 +10,11 @@ import { ProposalTimeoutService } from './proposal-timeout.service';
 import { SearchQueueService } from './search-queue.service';
 
 @Module({
-  imports: [SessionModule, forwardRef(() => GatewayModule)],
+  imports: [
+    SessionModule,
+    forwardRef(() => GatewayModule),
+    forwardRef(() => ChatModule),
+  ],
   providers: [
     SearchQueueService,
     CandidatePoolService,

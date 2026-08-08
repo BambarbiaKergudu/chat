@@ -1,6 +1,7 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { Interval } from '@nestjs/schedule';
 import { UserStatus } from '@chat/shared';
+import { WsEmitterService } from '../gateway/ws-emitter.service';
 import { RedisKeys } from '../redis/redis.keys';
 import { RedisService } from '../redis/redis.service';
 import { SessionService } from '../session/session.service';
@@ -21,6 +22,7 @@ export class MatcherWorker {
     private readonly sessionService: SessionService,
     private readonly proposalService: ProposalService,
     private readonly redis: RedisService,
+    private readonly wsEmitter: WsEmitterService,
   ) {}
 
   @Interval(500)
@@ -41,6 +43,21 @@ export class MatcherWorker {
           toUserStatus(initiator.status) !== UserStatus.Searching
         ) {
           await this.searchQueue.remove(initiatorId);
+          continue;
+        }
+
+        if (!this.wsEmitter.isSocketConnected(initiator.socketId)) {
+          this.logger.warn(`Purging dead searcher: ${initiatorId}`);
+          const pending = await this.redis.get(
+            RedisKeys.searchPending(initiatorId),
+          );
+          if (pending) {
+            await this.proposalService.expireProposal(pending);
+          }
+          await this.sessionService.cleanupSession(
+            initiator.sessionId,
+            initiator.socketId,
+          );
           continue;
         }
 
@@ -67,6 +84,15 @@ export class MatcherWorker {
           }
 
           if (!areMutualMatch(initiator, candidate)) {
+            continue;
+          }
+
+          if (
+            await this.proposalService.isPairBlocked(
+              initiator.sessionId,
+              candidate.sessionId,
+            )
+          ) {
             continue;
           }
 

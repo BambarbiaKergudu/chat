@@ -9,6 +9,10 @@ export class WsEmitterService {
     this.server = server;
   }
 
+  isSocketConnected(socketId: string): boolean {
+    return Boolean(this.server?.sockets.sockets.get(socketId));
+  }
+
   emitToSocket(socketId: string, event: string, payload: unknown): void {
     this.server?.to(socketId).emit(event, payload);
   }

@@ -1,5 +1,6 @@
 export const ClientEvents = {
   SessionInit: 'session:init',
+  SessionEditStart: 'session:edit_start',
   SearchStart: 'search:start',
   SearchStop: 'search:stop',
   MatchRespond: 'match:respond',

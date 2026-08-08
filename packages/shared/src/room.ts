@@ -49,4 +49,10 @@ export interface ChatSystemPayload {
   message: string;
 }
 
+export type ChatEndReason = 'leave' | 'disconnect';
+
+export interface ChatPeerLeftPayload {
+  reason: ChatEndReason;
+}
+
 export type GenderDisplay = Gender;

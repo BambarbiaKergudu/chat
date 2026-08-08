@@ -1,13 +1,14 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { Inject, Injectable, Logger, forwardRef } from '@nestjs/common';
 import {
   MatchConnectedPayload,
   MatchProposalPayload,
+  PAIR_BLOCK_TTL_SECONDS,
   PROPOSAL_TTL_SECONDS,
   ProposalData,
   ServerEvents,
   UserStatus,
 } from '@chat/shared';
-import { randomUUID } from 'crypto';
+import { ChatService } from '../chat/chat.service';
 import { WsEmitterService } from '../gateway/ws-emitter.service';
 import { RedisKeys, RedisSessionData } from '../redis/redis.keys';
 import { RedisService } from '../redis/redis.service';
@@ -25,6 +26,8 @@ export class ProposalService {
     private readonly sessionService: SessionService,
     private readonly searchQueue: SearchQueueService,
     private readonly wsEmitter: WsEmitterService,
+    @Inject(forwardRef(() => ChatService))
+    private readonly chatService: ChatService,
   ) {}
 
   async tryCreateProposal(
@@ -45,6 +48,17 @@ export class ProposalService {
       return false;
     }
 
+    if (!this.wsEmitter.isSocketConnected(freshCandidate.socketId)) {
+      this.logger.warn(
+        `Skipping dead candidate socket: ${freshCandidate.sessionId}`,
+      );
+      await this.sessionService.cleanupSession(
+        freshCandidate.sessionId,
+        freshCandidate.socketId,
+      );
+      return false;
+    }
+
     const freshInitiator = await this.sessionService.getSession(
       initiator.sessionId,
     );
@@ -55,45 +69,62 @@ export class ProposalService {
       return false;
     }
 
+    if (!this.wsEmitter.isSocketConnected(freshInitiator.socketId)) {
+      this.logger.warn(
+        `Skipping dead initiator socket: ${freshInitiator.sessionId}`,
+      );
+      const pending = await this.redis.get(
+        RedisKeys.searchPending(freshInitiator.sessionId),
+      );
+      if (pending) {
+        await this.expireProposal(pending);
+      }
+      await this.sessionService.cleanupSession(
+        freshInitiator.sessionId,
+        freshInitiator.socketId,
+      );
+      return false;
+    }
+
     const expiresAt = new Date(
       Date.now() + PROPOSAL_TTL_SECONDS * 1000,
     ).toISOString();
 
     const proposal: ProposalData = {
-      initiatorSessionId: initiator.sessionId,
+      initiatorSessionId: freshInitiator.sessionId,
       expiresAt,
     };
 
     await this.sessionService.updateStatus(
-      candidate.sessionId,
+      freshCandidate.sessionId,
       UserStatus.Proposed,
     );
 
     await this.redis.setex(
-      RedisKeys.proposal(candidate.sessionId),
+      RedisKeys.proposal(freshCandidate.sessionId),
       PROPOSAL_TTL_SECONDS,
       JSON.stringify(proposal),
     );
     await this.redis.setex(
-      RedisKeys.searchPending(initiator.sessionId),
+      RedisKeys.searchPending(freshInitiator.sessionId),
       PROPOSAL_TTL_SECONDS,
-      candidate.sessionId,
+      freshCandidate.sessionId,
     );
-    await this.redis.sadd(RedisKeys.proposedActive, candidate.sessionId);
+    await this.redis.sadd(RedisKeys.proposedActive, freshCandidate.sessionId);
 
     const payload: MatchProposalPayload = {
-      initiator: toPeerInfo(initiator),
+      initiator: toPeerInfo(freshInitiator),
       expiresAt,
     };
 
     this.wsEmitter.emitToSocket(
-      candidate.socketId,
+      freshCandidate.socketId,
       ServerEvents.MatchProposal,
       payload,
     );
 
     this.logger.log(
-      `Proposal sent: ${initiator.sessionId} -> ${candidate.sessionId}`,
+      `Proposal sent: ${freshInitiator.sessionId} -> ${freshCandidate.sessionId}`,
     );
 
     return true;
@@ -108,7 +139,11 @@ export class ProposalService {
   }
 
   async declineProposal(candidateSessionId: string): Promise<void> {
+    const proposal = await this.getProposal(candidateSessionId);
     await this.resetCandidate(candidateSessionId);
+    if (proposal) {
+      await this.blockPair(proposal.initiatorSessionId, candidateSessionId);
+    }
     this.logger.log(`Proposal declined: ${candidateSessionId}`);
   }
 
@@ -121,6 +156,27 @@ export class ProposalService {
 
     await this.resetCandidate(candidateSessionId);
     this.logger.log(`Proposal expired: ${candidateSessionId}`);
+  }
+
+  async isPairBlocked(
+    sessionIdA: string,
+    sessionIdB: string,
+  ): Promise<boolean> {
+    return this.redis.exists(RedisKeys.matchBlock(sessionIdA, sessionIdB));
+  }
+
+  private async blockPair(
+    sessionIdA: string,
+    sessionIdB: string,
+  ): Promise<void> {
+    await this.redis.setex(
+      RedisKeys.matchBlock(sessionIdA, sessionIdB),
+      PAIR_BLOCK_TTL_SECONDS,
+      '1',
+    );
+    this.logger.log(
+      `Pair blocked for ${PAIR_BLOCK_TTL_SECONDS}s: ${sessionIdA} + ${sessionIdB}`,
+    );
   }
 
   async acceptProposal(
@@ -146,14 +202,7 @@ export class ProposalService {
       return null;
     }
 
-    const roomId = randomUUID();
-
-    await this.redis.hset(RedisKeys.room(roomId), {
-      userAId: initiator.sessionId,
-      userBId: candidate.sessionId,
-      userASocketId: initiator.socketId,
-      userBSocketId: candidate.socketId,
-    });
+    const roomId = await this.chatService.createRoom(initiator, candidate);
 
     await this.searchQueue.remove(initiator.sessionId);
     await this.redis.del(

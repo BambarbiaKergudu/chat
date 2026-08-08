@@ -1,4 +1,5 @@
 import { Module, forwardRef } from '@nestjs/common';
+import { ChatModule } from '../chat/chat.module';
 import { PresenceModule } from '../presence/presence.module';
 import { SessionModule } from '../session/session.module';
 import { MatchmakingModule } from '../matchmaking/matchmaking.module';
@@ -8,8 +9,9 @@ import { WsEmitterService } from './ws-emitter.service';
 @Module({
   imports: [
     SessionModule,
-    PresenceModule,
+    forwardRef(() => PresenceModule),
     forwardRef(() => MatchmakingModule),
+    forwardRef(() => ChatModule),
   ],
   providers: [ChatGateway, WsEmitterService],
   exports: [WsEmitterService],

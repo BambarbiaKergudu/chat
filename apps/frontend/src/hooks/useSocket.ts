@@ -88,6 +88,18 @@ export function useSocket() {
     socketRef.current.emit(ClientEvents.MatchRespond, { accept });
   };
 
+  const sendChatMessage = (text: string) => {
+    socketRef.current.emit(ClientEvents.ChatMessage, { text });
+  };
+
+  const leaveChat = () => {
+    socketRef.current.emit(ClientEvents.ChatLeave);
+  };
+
+  const beginEditSearchParams = () => {
+    socketRef.current.emit(ClientEvents.SessionEditStart);
+  };
+
   return {
     socket: socketRef.current,
     connectionStatus,
@@ -95,6 +107,9 @@ export function useSocket() {
     startSearch,
     stopSearch,
     respondToProposal,
+    sendChatMessage,
+    leaveChat,
+    beginEditSearchParams,
     Gender,
     DesiredGender,
   };

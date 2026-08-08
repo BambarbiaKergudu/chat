@@ -1,4 +1,5 @@
 import type {
+  ChatMessage,
   MatchConnectedPayload,
   MatchProposalPayload,
   PartnerFilters,
@@ -15,6 +16,8 @@ interface AppState {
   filters: PartnerFilters | null;
   proposal: MatchProposalPayload | null;
   room: MatchConnectedPayload | null;
+  messages: ChatMessage[];
+  peerLeftNotice: string | null;
   setScreen: (screen: AppScreen) => void;
   setSession: (
     sessionId: string,
@@ -23,6 +26,11 @@ interface AppState {
   ) => void;
   setProposal: (proposal: MatchProposalPayload | null) => void;
   setRoom: (room: MatchConnectedPayload | null) => void;
+  addMessage: (message: ChatMessage) => void;
+  leaveChat: () => void;
+  handlePeerLeft: (notice: string) => void;
+  clearPeerLeftNotice: () => void;
+  editSearchParams: () => void;
   reset: () => void;
 }
 
@@ -33,6 +41,8 @@ export const useAppStore = create<AppState>((set) => ({
   filters: null,
   proposal: null,
   room: null,
+  messages: [],
+  peerLeftNotice: null,
   setScreen: (screen) => set({ screen }),
   setSession: (sessionId, profile, filters) =>
     set({
@@ -42,9 +52,42 @@ export const useAppStore = create<AppState>((set) => ({
       screen: 'idle',
       proposal: null,
       room: null,
+      messages: [],
+      peerLeftNotice: null,
     }),
   setProposal: (proposal) => set({ proposal }),
-  setRoom: (room) => set({ room, proposal: null }),
+  setRoom: (room) =>
+    set({
+      room,
+      proposal: null,
+      messages: [],
+      peerLeftNotice: null,
+    }),
+  addMessage: (message) =>
+    set((state) => {
+      if (state.messages.some((item) => item.id === message.id)) {
+        return state;
+      }
+      return { messages: [...state.messages, message] };
+    }),
+  leaveChat: () =>
+    set({
+      screen: 'idle',
+      room: null,
+      messages: [],
+      proposal: null,
+      peerLeftNotice: null,
+    }),
+  handlePeerLeft: (notice) =>
+    set({
+      screen: 'idle',
+      room: null,
+      messages: [],
+      proposal: null,
+      peerLeftNotice: notice,
+    }),
+  clearPeerLeftNotice: () => set({ peerLeftNotice: null }),
+  editSearchParams: () => set({ screen: 'login', proposal: null }),
   reset: () =>
     set({
       screen: 'login',
@@ -53,5 +96,7 @@ export const useAppStore = create<AppState>((set) => ({
       filters: null,
       proposal: null,
       room: null,
+      messages: [],
+      peerLeftNotice: null,
     }),
 }));

@@ -20,7 +20,8 @@ export class CandidatePoolService {
       const session = await this.sessionService.getSession(sessionId);
       if (session && toUserStatus(session.status) === UserStatus.Idle) {
         idle.push(sessionId);
-      } else if (session) {
+      } else {
+        // Drop orphans and non-idle leftovers so they cannot monopolize matching.
         await this.redis.srem(RedisKeys.idlePool, sessionId);
       }
     }

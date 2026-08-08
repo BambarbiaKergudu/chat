@@ -1,4 +1,4 @@
-import { Logger, UsePipes, ValidationPipe } from '@nestjs/common';
+import { Inject, Logger, UsePipes, ValidationPipe, forwardRef } from '@nestjs/common';
 import {
   ConnectedSocket,
   MessageBody,
@@ -11,6 +11,8 @@ import {
 } from '@nestjs/websockets';
 import { ClientEvents, ServerEvents } from '@chat/shared';
 import { Server, Socket } from 'socket.io';
+import { ChatMessageDto } from '../chat/chat.dto';
+import { ChatService } from '../chat/chat.service';
 import { MatchmakingService } from '../matchmaking/matchmaking.service';
 import { MatchRespondDto } from '../matchmaking/matchmaking.dto';
 import { PresenceService } from '../presence/presence.service';
@@ -43,12 +45,21 @@ export class ChatGateway
     private readonly sessionService: SessionService,
     private readonly presenceService: PresenceService,
     private readonly matchmakingService: MatchmakingService,
+    @Inject(forwardRef(() => ChatService))
+    private readonly chatService: ChatService,
     private readonly wsEmitter: WsEmitterService,
   ) {}
 
-  afterInit(server: Server) {
+  async afterInit(server: Server) {
     this.wsEmitter.setServer(server);
     this.logger.log('WebSocket gateway initialized');
+    try {
+      await this.presenceService.purgeDeadSessions();
+    } catch (error) {
+      this.logger.error(
+        `Failed to purge dead sessions: ${error instanceof Error ? error.message : error}`,
+      );
+    }
   }
 
   handleConnection(client: Socket) {
@@ -71,6 +82,11 @@ export class ChatGateway
     return result;
   }
 
+  @SubscribeMessage(ClientEvents.SessionEditStart)
+  async handleSessionEditStart(@ConnectedSocket() client: Socket) {
+    return this.sessionService.beginEdit(client.id);
+  }
+
   @SubscribeMessage(ClientEvents.SearchStart)
   async handleSearchStart(@ConnectedSocket() client: Socket) {
     return this.matchmakingService.startSearch(client.id);
@@ -88,5 +104,19 @@ export class ChatGateway
     @MessageBody() payload: MatchRespondDto,
   ) {
     return this.matchmakingService.respondToProposal(client.id, payload.accept);
+  }
+
+  @SubscribeMessage(ClientEvents.ChatMessage)
+  async handleChatMessage(
+    @ConnectedSocket() client: Socket,
+    @MessageBody() payload: ChatMessageDto,
+  ) {
+    return this.chatService.sendMessage(client.id, payload.text);
+  }
+
+  @SubscribeMessage(ClientEvents.ChatLeave)
+  async handleChatLeave(@ConnectedSocket() client: Socket) {
+    const left = await this.chatService.leaveBySocket(client.id, 'leave');
+    return { left };
   }
 }

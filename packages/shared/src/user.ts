@@ -14,6 +14,7 @@ export enum UserStatus {
   Searching = 'SEARCHING',
   Proposed = 'PROPOSED',
   InChat = 'IN_CHAT',
+  Editing = 'EDITING',
 }
 
 export interface UserProfile {
